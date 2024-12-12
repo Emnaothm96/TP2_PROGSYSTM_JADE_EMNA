@@ -49,3 +49,17 @@ struct addrinfo hints, *res, *p;
 
  ```
  TP2.c   
+
+ ## Question 3 : 
+
+Dans cette partie du programme on crée la fonction socket,c'est essentielle pour établir une communication entre notre programme (le client TFTP dans ce cas) et un serveur TFTP. Le socket permet d'envoyer des requêtes au serveur et de recevoir des réponses.On utilise les paramètres définis précédemment (comme AF_INET pour indiquer qu’on communique en IPv4 et SOCK_DGRAM pour spécifier qu’on utilise UDP) pour configurer correctement cette connexion. Une fois le socket créé, il nous donne un identifiant (sock) que le programme utilisera pour toutes les communications avec le serveur.
+
+```c title="TP2.c"
+int sock;
+sock = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+    if (sock== -1) {
+        perror("Erreur lors de la création du socket");
+        return 1;
+    }
+```
+TP2.c    

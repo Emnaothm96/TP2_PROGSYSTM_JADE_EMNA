@@ -29,3 +29,10 @@ struct addrinfo hints, *res, *p;
         fprintf(stderr, "Erreur dans getaddrinfo: %s\n", gai_strerror(status));
         return 1;
     }
+
+ int sock;
+    sock = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+    if (sock== -1) {
+        perror("Erreur lors de la création du socket");
+        return 1;
+    }
