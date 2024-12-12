@@ -56,8 +56,8 @@ Dans cette partie du programme on crée la fonction socket,c'est essentielle pou
 
 ```c title="TP2.c"
 int sock;
-sock = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
-    if (sock== -1) {
+    sock = socket(res->ai_family, res->ai_socktype,0);
+    if (sock<0) {
         perror("Erreur lors de la création du socket");
         return 1;
     }

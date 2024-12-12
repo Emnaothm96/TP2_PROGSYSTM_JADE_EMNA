@@ -31,8 +31,10 @@ struct addrinfo hints, *res, *p;
     }
 
  int sock;
-    sock = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
-    if (sock== -1) {
+    sock = socket(res->ai_family, res->ai_socktype,0);
+    if (sock<0) {
         perror("Erreur lors de la création du socket");
         return 1;
     }
+
+}    
