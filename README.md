@@ -27,3 +27,25 @@ int main(int argc, char *argv[]) {
     char *port = "69"; // Port TFTP
 ```
 TP2.c
+
+## Question 2 : 
+
+Dans cette partie du programme, on configure les informations nécessaires pour se connecter au serveur TFTP. On commence par initialiser une structure (hints) pour préciser qu’on veut utiliser une adresse IPv4 (AF_INET) et le protocole UDP (SOCK_DGRAM), car c’est ce qu’utilise TFTP. Ensuite, on utilise la fonction getaddrinfo pour convertir le nom du serveur (ou son adresse) et le numéro de port en une structure contenant tous les détails nécessaires pour communiquer avec lui. Si cette étape échoue, le programme affiche une erreur et s’arrête
+
+```c title="TP2.c"
+struct addrinfo hints, *res, *p;
+
+    // Initialisation de hints
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET;       // IPv4
+    hints.ai_socktype = SOCK_DGRAM; // UDP
+
+    // Résolution de l'adresse du serveur
+    int status = getaddrinfo(domain, port, &hints, &res);
+    if (status != 0) {
+        fprintf(stderr, "Erreur dans getaddrinfo: %s\n", gai_strerror(status));
+        return 1;
+    }
+
+ ```
+ TP2.c   
