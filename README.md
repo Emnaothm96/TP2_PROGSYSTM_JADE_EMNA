@@ -99,7 +99,9 @@ Dans cette partie du code, on construit une requête TFTP de lecture appelée RR
 
    ### 4)b)
 
-   dans cette partie du code, le client reçoit les paquets de données (DAT) envoyé par le serveur TFTPaprès que la requete de lecture (RRQ) a été acceptée. le fichier local où seront stockées les données est d'abord en mode binaire (wb) avec fopen.  si le fichier ne peut pas etre créé, une erreure est affichée et le programme s'arrete.  ensuite une boucle utilise la fonction recvfrom pour recevoir les paquets envoyés par le serveur. Chaque paquet est d'abord vérifié  pour etre sur que c'est bien un paquet de données, en examinant son opcode(qui doiit etre 0x03 pour un paquet de DAT). Le programme extrait également le numéro de bloc du paquet, qui sert à vérifier que les données sont reçues dans le bon ordre. Si le numéro de bloc reçu ne correspond pas au numéro attendu, cela signifie qu’il y a un problème et le téléchargement est interrompu. Une fois les vérifications faites, les données du paquet (situées à partir du 4ᵉ octet) sont écrites dans le fichier local avec fwrite. Le but de ce code est donc de reconstruire correctement le fichier demandé, en s'assurant que les données sont valides et reçues dans le bon ordre, tout en gérant les erreurs qui pourraient survenir pendant le transfert.
+ Dans cette partie du code, le traitement des paquets de données (DAT) et des acquittements (ACK) assure un transfert fiable entre le client et le serveur, en respectant le protocole TFTP. Tout d’abord, le client reçoit un paquet envoyé par le serveur via la fonction recvfrom. Ce paquet peut contenir jusqu’à 512 octets : 4 octets pour l’en-tête (opcode et numéro de bloc) et jusqu’à 512 octets pour les données utiles du fichier. Après réception, le client vérifie que l’opcode du paquet est bien 0x03, ce qui identifie un paquet de données (DAT). Si l’opcode est incorrect, cela signifie que le paquet reçu est invalide ou inattendu, et le programme interrompt le traitement.
+
+Une fois validé, le client extrait les données du paquet, qui commencent au 4ᵉ octet (buffer + 4), et les écrit dans le fichier local avec fwrite. À chaque paquet reçu, le fichier est progressivement construit, bloc par bloc. Ensuite, le client envoie un acquittement (ACK) au serveur pour confirmer que le bloc de données a bien été reçu. Cet ACK est un message de 4 octets : les deux premiers octets contiennent l’opcode 0x04 pour signaler un acquittement, et les deux derniers octets contiennent le numéro de bloc correspondant au paquet reçu, extrait directement de l’en-tête du paquet. L’ACK est envoyé au serveur via la fonction sendto.
 
    ```c title="TP2.c"
 
@@ -108,29 +110,47 @@ Dans cette partie du code, on construit une requête TFTP de lecture appelée RR
     if (!outfile) {
         perror("Erreur lors de la création du fichier local");
         free(rrq);
-        close(sockfd);
+        close(sock);
         return 1;
     }
 
-    char buffer[516]; // Taille maximale d'un paquet TFTP (512 octets de données + en-tête)
-    ssize_t bytes_received;
-    int block_number = 1;
-    while ((bytes_received = recvfrom(sockfd, buffer, sizeof(buffer), 0, NULL, NULL)) > 0) {
+    char buffer[516]; // Taille maximale d'un paquet TFTP (512 octets + en-tête)
+    ssize_t bytes_received = recvfrom(sock, buffer, sizeof(buffer), 0, NULL, NULL);
+    if (bytes_received == -1) {
+        perror("Erreur lors de la réception des données");
+        fclose(outfile);
+        free(rrq);
+        close(sock);
+        return 1;
+    }
         // Vérification de l'opcode (0x03 pour DATA)
-        if (buffer[1] != 0x03) {
-            fprintf(stderr, "Paquet inattendu reçu (opcode: %d).\n", buffer[1]);
-            break;
-        }
+    if (buffer[1] != 0x03) {
+        fprintf(stderr, "Paquet inattendu reçu (opcode: %d).\n", buffer[1]);
+        fclose(outfile);
+        free(rrq);
+        close(sock);
+        return 1;
+    }
 
-        // Extraire le numéro de bloc
-        int received_block = (buffer[2] << 8) | buffer[3];
-        if (received_block != block_number) {
-            fprintf(stderr, "Numéro de bloc inattendu : %d (attendu : %d).\n", received_block, block_number);
-            break;
-        }
+    // Écrire les données dans le fichier (à partir du 4ème octet)
+    fwrite(buffer + 4, 1, bytes_received - 4, outfile);
+    printf("Données reçues et écrites dans le fichier '%s'.\n", filename);
 
-        // Écrire les données dans le fichier (à partir du 4ème octet)
-        fwrite(buffer + 4, 1, bytes_received - 4, outfile);
+    // Envoi de l'ACK
+    char ack[4] = {0x00, 0x04, buffer[2], buffer[3]}; // ACK avec le numéro de bloc
+    if (sendto(sock, ack, sizeof(ack), 0, res->ai_addr, res->ai_addrlen) == -1) {
+        perror("Erreur lors de l'envoi de l'ACK");
+    } else {
+        printf("ACK envoyé pour le bloc 1.\n");
+    }
+
+    // Nettoyage
+    fclose(outfile);
+    free(rrq);
+    freeaddrinfo(res);
+    close(sock);
+
+    return 0;
   ```
   TP2.c
 

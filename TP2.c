@@ -71,23 +71,41 @@ struct addrinfo hints, *res, *p;
         return 1;
     }
 
-    char buffer[516]; // Taille maximale d'un paquet TFTP (512 octets de données + en-tête)
-    ssize_t bytes_received;
-    int block_number = 1;
-    while ((bytes_received = recvfrom(sock, buffer, sizeof(buffer), 0, NULL, NULL)) > 0) {
+    char buffer[516]; // Taille maximale d'un paquet TFTP (512 octets + en-tête)
+    ssize_t bytes_received = recvfrom(sock, buffer, sizeof(buffer), 0, NULL, NULL);
+    if (bytes_received == -1) {
+        perror("Erreur lors de la réception des données");
+        fclose(outfile);
+        free(rrq);
+        close(sock);
+        return 1;
+    }
         // Vérification de l'opcode (0x03 pour DATA)
-        if (buffer[1] != 0x03) {
-            fprintf(stderr, "Paquet inattendu reçu (opcode: %d).\n", buffer[1]);
-            break;
-        }
+    if (buffer[1] != 0x03) {
+        fprintf(stderr, "Paquet inattendu reçu (opcode: %d).\n", buffer[1]);
+        fclose(outfile);
+        free(rrq);
+        close(sock);
+        return 1;
+    }
 
-        // Extraire le numéro de bloc
-        int received_block = (buffer[2] << 8) | buffer[3];
-        if (received_block != block_number) {
-            fprintf(stderr, "Numéro de bloc inattendu : %d (attendu : %d).\n", received_block, block_number);
-            break;
-        }
+    // Écrire les données dans le fichier (à partir du 4ème octet)
+    fwrite(buffer + 4, 1, bytes_received - 4, outfile);
+    printf("Données reçues et écrites dans le fichier '%s'.\n", filename);
 
-        // Écrire les données dans le fichier (à partir du 4ème octet)
-        fwrite(buffer + 4, 1, bytes_received - 4, outfile);
+    // Envoi de l'ACK
+    char ack[4] = {0x00, 0x04, buffer[2], buffer[3]}; // ACK avec le numéro de bloc
+    if (sendto(sock, ack, sizeof(ack), 0, res->ai_addr, res->ai_addrlen) == -1) {
+        perror("Erreur lors de l'envoi de l'ACK");
+    } else {
+        printf("ACK envoyé pour le bloc 1.\n");
+    }
+
+    // Nettoyage
+    fclose(outfile);
+    free(rrq);
+    freeaddrinfo(res);
+    close(sock);
+
+    return 0;
 }    
