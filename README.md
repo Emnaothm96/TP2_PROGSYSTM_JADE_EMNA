@@ -167,6 +167,49 @@ Une fois validé, le client extrait les données du paquet, qui commencent au 4�
   ![Les variables ajoutées](<Capture d’écran du 2024-12-19 11-25-16.png>)
   ![Le bon résultat](<Capture d’écran du 2024-12-19 11-26-48.png>)
 
+  ## Question 5 
+
+  ### 5)a)
+
+  Cette partie du code est similaire à ce qui a été fait plus tôt pour construire et envoyer une requête de lecture (RRQ, Read Request), mais avec quelques différences importantes car il s'agit ici d'une requête d'écriture (WRQ, Write Request). Tout comme pour la RRQ, on calcule la taille totale de la requête en fonction de ses composants : l’opcode (2 octets), le nom du fichier, un caractère nul (\0), le mode de transfert (octet), et un autre caractère nul. On alloue ensuite dynamiquement la mémoire nécessaire pour stocker cette requête.
+
+La principale différence est l’opcode utilisé : 0x02 dans ce cas, qui indique une requête en écriture, contrairement à 0x01 utilisé pour une requête de lecture. Cela signifie que le client informe le serveur qu'il souhaite téléverser un fichier au lieu de le télécharger. Une fois la requête construite, elle est envoyée au serveur avec la fonction sendto, comme pour la RRQ. Le reste du processus, comme la gestion des erreurs en cas d’échec d’allocation mémoire ou d’envoi, reste similaire.
+
+```c title="TP2WRQ.c"
+
+// Construction de la requête WRQ
+    char mode[] = "octet"; // Mode de transfert
+    size_t wrq_len = 2 + strlen(filename) + 1 + strlen(mode) + 1;
+    char *wrq = malloc(wrq_len);
+    if (!wrq) {
+        perror("Erreur d'allocation mémoire");
+        close(sock);
+        return 1;
+    }
+    memset(wrq, 0, wrq_len);
+    wrq[0] = 0x00; // Opcode pour WRQ
+    wrq[1] = 0x02; // Opcode pour écriture
+    strcpy(wrq + 2, filename); // Nom du fichier
+    strcpy(wrq + 2 + strlen(filename) + 1, mode); // Mode de transfert
+
+struct sockaddr * serv_adrr = res->ai_addr;
+socklen_t serv_adrr_len = res->ai_addrlen;
+
+    // Envoi de la requête WRQ au serveur
+    if (sendto(sock, wrq, wrq_len, 0, serv_adrr,serv_adrr_len) < 0 ) {
+        perror("Erreur lors de l'envoi de la requête WRQ");
+        free(wrq);
+        close(sock);
+        return 1;
+    }
+    printf("Requête WRQ envoyée pour le fichier '%s'.\n", filename);
+```
+TP2WRQ.c
+
+
+
+
+
 
 
 
