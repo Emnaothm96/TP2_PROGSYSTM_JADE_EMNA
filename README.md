@@ -83,9 +83,10 @@ Dans cette partie du code, on construit une requête TFTP de lecture appelée RR
     rrq[1] = 0x01;                     
     strcpy(rrq + 2, filename);         // Ajouter le nom du fichier demandé
     strcpy(rrq + 2 + strlen(filename) + 1, mode); // Ajouter le mode de transfert ("octet")
-
+struct sockaddr * serv_adrr = res->ai_addr;
+socklen_t serv_adrr_len = res->ai_addrlen;
 // Envoyer la requête au serveur
-    if (sendto(sock, rrq, rrq_len, 0, res->ai_addr, res->ai_addrlen) < 0) {
+    if (sendto(sock, rrq, rrq_len, 0, serv_adrr, serv_adrr_len) < 0) {
         perror("Erreur lors de l'envoi de la requête"); // Afficher une erreur si l'envoi échoue
         free(rrq);            // Libérer la mémoire allouée pour la requête
         close(sock);        // Fermer le socket
@@ -115,7 +116,7 @@ Une fois validé, le client extrait les données du paquet, qui commencent au 4�
     }
 
     char buffer[516]; // Taille maximale d'un paquet TFTP (512 octets + en-tête)
-    ssize_t bytes_received = recvfrom(sock, buffer, sizeof(buffer), 0, NULL, NULL);
+    ssize_t bytes_received = recvfrom(sock, buffer, sizeof(buffer), 0, serv_adrr, &serv_adrr_len);
     if (bytes_received == -1) {
         perror("Erreur lors de la réception des données");
         fclose(outfile);
@@ -138,7 +139,7 @@ Une fois validé, le client extrait les données du paquet, qui commencent au 4�
 
     // Envoi de l'ACK
     char ack[4] = {0x00, 0x04, buffer[2], buffer[3]}; // ACK avec le numéro de bloc
-    if (sendto(sock, ack, sizeof(ack), 0, res->ai_addr, res->ai_addrlen) == -1) {
+    if (sendto(sock, ack, sizeof(ack), 0, serv_adrr, serv_adrr_len) < 0) {
         perror("Erreur lors de l'envoi de l'ACK");
     } else {
         printf("ACK envoyé pour le bloc 1.\n");
@@ -153,4 +154,19 @@ Une fois validé, le client extrait les données du paquet, qui commencent au 4�
     return 0;
   ```
   TP2.c
+
+  Dans cette capture Wireshark, on peut observer que le client envoie une requête de lecture (RRQ) au serveur TFTP pour demander un fichier spécifique (par exemple, ones256 ou alt256). La requête est correctement formatée, comme le montre l'opcode 1 (indiquant une RRQ) et les détails du fichier et du mode de transfert (octet). Cependant, le serveur répond avec un paquet d'erreur (opcode 5), indiquant que le fichier demandé n’a pas été trouvé. Cela signifie que le fichier spécifié dans la requête n’existe pas dans le répertoire où le serveur TFTP cherche les fichiers même si le dossier serveur-tftp est bien placé dans le dossier du TP 
+  ![Erreur wireshark](<Capture d’écran du 2024-12-19 10-46-49.png>)
+
+  le problème vient du fait qu'on utilisait le port 69 qui correspond au serveur de l'ensea, hors nous sommes dans cette partie en local. il faut alors se mettre sur le port 1069. de cette façon nous pouviosn envoyer la requete. cependant nous avons eu un deuxième problème concenrant les paramètre dans le recvfrom. en effet les deux derniers paramètres qui permettent de capturer l'adresse source et la longeur de l'adresse du paquet reçu : on avait mis NULL NULL donc on a l'erreur suivante (destination unreachable).
+
+  ![deuxième erreur](<Capture d’écran du 2024-12-19 11-19-29.png>)
+
+  Alors on a posé deux variables premièrement pour ne pas ecraser les valeurs chaque fois et pour les ajouter comme paramètres dans les fonctions recvfrom et sendto 
+
+  ![Les variables ajoutées](<Capture d’écran du 2024-12-19 11-25-16.png>)
+  ![Le bon résultat](<Capture d’écran du 2024-12-19 11-26-48.png>)
+
+
+
 

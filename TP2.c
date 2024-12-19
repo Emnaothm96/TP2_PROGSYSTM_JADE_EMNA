@@ -14,7 +14,7 @@ int main(int argc, char *argv[]) {
 
     char *domain = argv[1]; // Adresse du serveur (ex: "127.0.0.1")
     char *filename = argv[2]; // Nom du fichier à télécharger
-    char *port = "69"; // Port TFTP
+    char *port = "1069"; // Port TFTP
 
 struct addrinfo hints, *res, *p;
 
@@ -52,8 +52,10 @@ struct addrinfo hints, *res, *p;
     strcpy(rrq + 2, filename);         // Ajouter le nom du fichier demandé
     strcpy(rrq + 2 + strlen(filename) + 1, mode); // Ajouter le mode de transfert ("octet")
 
+struct sockaddr * serv_adrr = res->ai_addr;
+socklen_t serv_adrr_len = res->ai_addrlen;
 // Envoyer la requête au serveur
-    if (sendto(sock, rrq, rrq_len, 0, res->ai_addr, res->ai_addrlen) < 0) {
+    if (sendto(sock, rrq, rrq_len, 0, serv_adrr, serv_adrr_len) < 0) {
         perror("Erreur lors de l'envoi de la requête"); // Afficher une erreur si l'envoi échoue
         free(rrq);            // Libérer la mémoire allouée pour la requête
         close(sock);        // Fermer le socket
@@ -72,7 +74,7 @@ struct addrinfo hints, *res, *p;
     }
 
     char buffer[516]; // Taille maximale d'un paquet TFTP (512 octets + en-tête)
-    ssize_t bytes_received = recvfrom(sock, buffer, sizeof(buffer), 0, NULL, NULL);
+    ssize_t bytes_received = recvfrom(sock, buffer, sizeof(buffer), 0, serv_adrr, &serv_adrr_len);
     if (bytes_received == -1) {
         perror("Erreur lors de la réception des données");
         fclose(outfile);
@@ -95,7 +97,7 @@ struct addrinfo hints, *res, *p;
 
     // Envoi de l'ACK
     char ack[4] = {0x00, 0x04, buffer[2], buffer[3]}; // ACK avec le numéro de bloc
-    if (sendto(sock, ack, sizeof(ack), 0, res->ai_addr, res->ai_addrlen) == -1) {
+    if (sendto(sock, ack, sizeof(ack), 0, serv_adrr, serv_adrr_len) < 0) {
         perror("Erreur lors de l'envoi de l'ACK");
     } else {
         printf("ACK envoyé pour le bloc 1.\n");
